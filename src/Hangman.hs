@@ -1,13 +1,20 @@
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE BangPatterns #-}
 module Hangman where
 
 import Control.Monad
+import Data.List (find)
+import Data.Char (toLower)
+import Data.Maybe (fromJust)
+import Debug.Trace
 
 data GameState = GameState {
   secretWord :: String,
-  guesses :: [Char],
-  lives :: Int
+  lives :: Int,
+  guesses :: [Char]
 } deriving (Eq, Show)
+
+newGameState word = GameState (map toLower word) 5 []
 
 showWord state = map (\c -> if elem c (guesses state) then c else '_') (secretWord state)
 showState s = "You have " ++ (show $ lives s) ++ " lifes. The word is \"" ++ (showWord s) ++ "\""
@@ -31,34 +38,60 @@ gameEnded = noLives ||| guessedWord
 gameInProgress = not . gameEnded
 
 
-class CharacterStream a where
-  getCharacters :: a -> [Char]
-
-instance CharacterStream [Char] where
-  getCharacters = id
-
-
-runGame :: (CharacterStream s) => String -> Int -> s -> [GameState]
-runGame word lives stream = takeWhile gameInProgress $ scanl updateState startState (getCharacters stream)
-  where startState = GameState word [] lives
+---------- Version of game to test game logic. Pass [Chars] as user input ----------
+-- runGameTesting (newGameState "secret") "secrfta"
+runGameTesting :: GameState -> [Char] -> [GameState]
+runGameTesting gs stream = takeWhile gameInProgress $ scanl updateState gs stream
 
 
-doStep :: GameState -> IO ()
-doStep gamestate =
-  if gameEnded gamestate
-  then putStrLn "End of the game. You either won or lost ;)"
+-- gets a letter from terminal
+getALetter :: GameState -> IO Char
+getALetter gs = do
+  putStrLn $ showState gs
+  putStrLn "Guess a letter: "
+  fmap (toLower . head) getLine
+
+---------- Recursive version of game ----------
+-- runGameRecursively (newGameState "secret")
+
+runGameRecursively :: GameState -> IO ()
+runGameRecursively gs =
+  if gameEnded gs
+  then putStrLn $ showState gs
   else do
-    putStrLn $ showState gamestate
-    putStrLn "Guess next letter"
-    c <- getLine
-    doStep $ updateState gamestate (head c)
+    l <- getALetter gs
+    runGameRecursively $ updateState gs l
 
+---------- Infitine list version of game ----------
+-- runGameIntinite (newGameState "secret")
+updateGameState :: GameState -> IO GameState
+updateGameState gs = do
+   l <- getALetter gs
+   return $ updateState gs l
+
+ff :: (a -> Bool) -> [IO a] -> IO a
+ff f (i:is) = do
+  res <- i
+  if f res then return res else ff f is
+
+fff :: (a -> Bool) -> [IO a] -> IO a
+fff f (i:is) = do
+  res <- i
+  if (traceShowId $ f res) then return res else ff f is
+
+
+runGameInfinite :: GameState -> IO ()
+runGameInfinite gs =
+  -- infinite lazy game loop
+  let repl = tail $ iterate (\x -> (fmap traceShowId x) >>= updateGameState) (return gs) :: [IO GameState]
+  in do
+    endState <- ff gameEnded repl
+--     endState <- last $ take 3 repl
+--     endState <- fmap fromJust $ liftM (find gameEnded) (sequence repl)
+    putStrLn $ showState endState
+
+---------- Main ----------
 main :: IO ()
-main = do
-  putStrLn "Hangman is starting"
-  doStep $ GameState "fero" [] 5
+main = runGameInfinite (newGameState "car")
 
 
--- runGame2 :: (CharacterStream s) => String -> Int -> s -> [(GameState, IO Char)]
--- runGame2 word lives stream = takeWhile gameInProgress $ scanl updateState startState (getCharacters stream)
---   where startState = GameState word [] lives
