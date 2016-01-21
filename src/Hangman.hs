@@ -6,7 +6,7 @@ import Control.Monad
 import Data.List (find)
 import Data.Char (toLower)
 import Data.Maybe (fromJust)
-import Debug.Trace
+-- import Debug.Trace
 
 data GameState = GameState {
   secretWord :: String,
@@ -77,15 +77,16 @@ ff f (i:is) = do
 fff :: (a -> Bool) -> [IO a] -> IO a
 fff f (i:is) = do
   res <- i
-  if (traceShowId $ f res) then return res else ff f is
+  if f res then return res else ff f is
 
+iii !x = x >>= updateGameState
 
 runGameInfinite :: GameState -> IO ()
 runGameInfinite gs =
   -- infinite lazy game loop
-  let repl = tail $ iterate (\x -> (fmap traceShowId x) >>= updateGameState) (return gs) :: [IO GameState]
+  let repl = tail $ iterate (\x -> x >>= updateGameState) (return gs) :: [IO GameState]
   in do
-    endState <- ff gameEnded repl
+    endState <- fff gameEnded repl
 --     endState <- last $ take 3 repl
 --     endState <- fmap fromJust $ liftM (find gameEnded) (sequence repl)
     putStrLn $ showState endState
