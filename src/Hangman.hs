@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
 module Hangman where
 
 import Control.Monad
@@ -8,8 +6,7 @@ import Data.Char (toLower)
 import Data.Maybe (fromJust)
 import Streaming
 import qualified Streaming.Prelude as S
---import Control.Monad.State
---import Control.Monad.Identity
+import Control.Monad.Identity
 import Network.HTTP
 
 data GameState = GameState {
@@ -73,54 +70,30 @@ updateGameStateIO gs = do
    l <- getALetter gs
    return $ updateGameState gs l
 
---ioStream :: Stream (S.Of GameState) IO ()
---ioStream = S.iterateM updateGameState (return gs)
 
-runGameInfiniteStream ::  Monad m => (GameState -> m GameState) -> GameState -> Stream (S.Of GameState) m ()
-runGameInfiniteStream updateGameStateFunction gs = S.take 1 $ S.dropWhile gameInProgress steps
-   where
-   --steps :: Monad m => GameState -> (GameState -> m GameState) -> Stream (S.Of GameState) m ()
-   steps = S.iterateM updateGameStateFunction (return gs)
+ioSteps :: GameState -> Stream (Of GameState) IO r
+ioSteps gs = S.iterateM updateGameStateIO (return gs)
+
+runGameInfiniteStream :: Monad m => Stream (Of GameState) m r -> Stream (Of GameState) m ()
+runGameInfiniteStream steps = S.take 1 $ S.dropWhile gameInProgress steps
+
+pureSteps :: GameState -> [Char] -> Stream (Of GameState) Identity ()
+pureSteps gs chars = S.scan updateGameState gs id (S.each chars)
+
+pureGameTest = runGameInfiniteStream $ pureSteps (newGameState "car") "carfffff"
+
+
+---------- Random word ----------
+httpGet :: String -> IO String
+httpGet url = simpleHTTP (getRequest url) >>= getResponseBody
+
+randomWord = httpGet "http://randomword.setgetgo.com/get.php"
 
 ---------- Main ----------
 main :: IO ()
--- main = putStrLn ""
 main = do
+  putStrLn "You are playing reactive Hangman!!!"
   word <- randomWord
-  S.print $ runGameInfiniteStream updateGameStateIO (newGameState word)
+  S.print $ runGameInfiniteStream $ ioSteps (newGameState word)
 
---s :: [Char] -> GameState -> State [Char] GameState
---s = undefined
-
-----m = runGameInfiniteStream (updateGameStateTest "asdafsdsa") (newGameState "car")
-
---updateGameStateTest :: MonadState [Char] m => [Char] -> GameState -> m GameState
---updateGameStateTest = undefined
---updateGameStateTest gs = 
---  (do (l:ls) <- get
---      put ls
---      return (updateGameState gs l)
---  )
-
---updateGameStateTest2 :: [Char] -> GameState -> Identity GameState
---updateGameStateTest2 (x:xs) gs = return $ updateGameState gs x
-
---mainn = S.print $ runGameInfiniteStream (updateGameStateTest "") (newGameState "car")
-
-get :: String -> IO String
-get url = simpleHTTP (getRequest url) >>= getResponseBody
-
-randomWord = get "http://randomword.setgetgo.com/get.php"
-
-type Stack = [Int]  
-  
-pop :: Stack -> (Int,Stack)  
-pop (x:xs) = (x,xs)  
-  
-push :: Int -> Stack -> ((),Stack)  
-push a xs = ((),a:xs)  
-stackManip stack = let  
-    ((),newStack1) = push 3 stack  
-    (a ,newStack2) = pop newStack1  
-    in pop newStack2  
 
