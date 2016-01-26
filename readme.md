@@ -13,7 +13,10 @@ This is how they work with simple list of number
 
 This is how it works in the game. [Streaming package](https://github.com/michaelt/streaming) is used, because otherwise I can't do lazy IO
 
-	ioSteps :: GameState -> Stream (Of GameState) IO r
+    updateGameStateIO :: GameState -> IO GameState
+    updateGameStateIO = ...
+    
+    ioSteps :: GameState -> Stream (Of GameState) IO r
     ioSteps gs = S.iterateM updateGameStateIO (return gs)
 
     runGameInfiniteStream :: Monad m => Stream (Of GameState) m r -> Stream (Of GameState) m ()
