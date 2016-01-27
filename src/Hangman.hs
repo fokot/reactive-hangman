@@ -8,6 +8,7 @@ import Streaming
 import qualified Streaming.Prelude as S
 import Control.Monad.Identity
 import Network.HTTP
+import Data.Maybe (fromJust)
 
 data GameState = GameState {
   secretWord :: String,
@@ -80,8 +81,11 @@ runGameInfiniteStream steps = S.take 1 $ S.dropWhile gameInProgress steps
 pureSteps :: GameState -> [Char] -> Stream (Of GameState) Identity ()
 pureSteps gs chars = S.scan updateGameState gs id (S.each chars)
 
-pureGameTest = runGameInfiniteStream $ pureSteps (newGameState "car") "carfffff"
+-- most of the code is just how to get simple GameState from the stream
+pureGame :: GameState -> [Char] -> GameState
+pureGame = curry $ fromJust . extractOf . runIdentity . S.head . runGameInfiniteStream . (uncurry pureSteps)
 
+extractOf (a :> _) = a
 
 ---------- Random word ----------
 httpGet :: String -> IO String

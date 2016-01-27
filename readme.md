@@ -21,4 +21,13 @@ This is how it works in the game. [Streaming package](https://github.com/michael
 
 Random words are get from this service "http://randomword.setgetgo.com/get.php"
 
-TODO - use pure streams to do nice testing
+This way I'm able to simulate the gameplay with providing guesses and pure functions
+    
+    pureSteps :: GameState -> [Char] -> Stream (Of GameState) Identity ()
+    pureSteps gs chars = S.scan updateGameState gs id (S.each chars)
+
+    pureGame :: GameState -> [Char] -> GameState
+    pureGame = ...
+
+    testCase "win game - not a straight guess" $
+     pureGame car "cafr" @?= (GameState "car" 4 "rac")
