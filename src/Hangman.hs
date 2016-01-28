@@ -9,6 +9,7 @@ import qualified Streaming.Prelude as S
 import Control.Monad.Identity
 import Network.HTTP
 import Data.Maybe (fromJust)
+import System.IO.Unsafe (unsafeInterleaveIO)
 
 data GameState = GameState {
   secretWord :: String,
@@ -41,9 +42,38 @@ gameInProgress = not . gameEnded
 
 
 ---------- Version of game to test game logic. Pass [Chars] as user input ----------
--- runGameTesting (newGameState "secret") "secrfta"
+-- runIdentity $ runGameTesting (newGameState "secret") "secrfta"
 runGameTesting :: GameState -> [Char] -> GameState
 runGameTesting gs stream = head $ dropWhile gameInProgress $ scanl updateGameState gs stream
+
+
+runGameM :: Monad m => GameState -> (GameState -> m [GameState]) -> m GameState
+runGameM gs stream = do 
+  steps <- stream gs
+  return $ head $ dropWhile gameInProgress steps
+
+gsIO :: GameState -> IO [GameState]
+gsIO gs = do
+  l <- getALetter gs
+  let ngs = updateGameState gs l 
+  g <- unsafeInterleaveIO $ gsIO ngs
+  return $ (ngs : g)
+
+gsPure :: [Char] -> GameState -> Identity [GameState]
+gsPure (c:cs) gs = do 
+  let newGs = updateGameState gs c
+  nextGs <- gsPure cs newGs
+  return (newGs : nextGs)
+
+runPureGame = runGameM (newGameState "car") $ gsPure "cfar"
+
+runInteractiveGame = runGameM (newGameState "car") gsIO
+
+
+
+
+
+
 
 
 -- gets a letter from terminal

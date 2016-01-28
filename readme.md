@@ -11,7 +11,33 @@ This is how they work with simple list of number
     Prelude> takeWhile (< 12) $ scanl (+) 0 l
     [0,1,3,6,10,11]
 
-This is how it works in the game. [Streaming package](https://github.com/michaelt/streaming) is used, because otherwise I can't do lazy IO
+IO is not lazy so it can be done only with use of unsafeInterleaveIO to make IO lazy
+
+    runGameM :: Monad m => GameState -> (GameState -> m [GameState]) -> m GameState
+    runGameM gs stream = do 
+      steps <- stream gs
+      return $ head $ dropWhile gameInProgress steps
+
+    gsIO :: GameState -> IO [GameState]
+    gsIO gs = do
+      l <- getALetter gs
+      let ngs = updateGameState gs l 
+      g <- unsafeInterleaveIO $ gsIO ngs
+      return $ (ngs : g)
+
+    runInteractiveGame = runGameM (newGameState "car") gsIO
+
+And this is how game can be tested
+    
+    gsPure :: [Char] -> GameState -> Identity [GameState]
+    gsPure (c:cs) gs = do 
+      let newGs = updateGameState gs c
+      nextGs <- gsPure cs newGs
+      return (newGs : nextGs)
+
+    runPureGame = runGameM (newGameState "car") $ gsPure "cfar"
+
+Or istead of using unsafeInterleaveIO I also made a version with [streaming package](https://github.com/michaelt/streaming) 
 
     updateGameStateIO :: GameState -> IO GameState
     updateGameStateIO = ...
