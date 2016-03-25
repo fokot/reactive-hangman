@@ -13,7 +13,7 @@ This is how they work with simple list of number
     Prelude> takeWhile (< 12) $ scanl (+) 0 l
     [0,1,3,6,10,11]
 
-IO is not lazy so it can be done only with use of unsafeInterleaveIO to make IO lazy
+IO is not lazy so it can be done only with use of unsafeInterleaveIO to make IO lazy. [This is why](http://stackoverflow.com/questions/34910992/iterate-io-actions-and-laziness)
 
     runGameM :: Monad m => GameState -> (GameState -> m [GameState]) -> m GameState
     runGameM gs stream = do 
@@ -50,7 +50,7 @@ Or istead of using unsafeInterleaveIO I also made a version with [streaming pack
     runGameInfiniteStream :: Monad m => Stream (Of GameState) m r -> Stream (Of GameState) m ()
     runGameInfiniteStream steps = S.take 1 $ S.dropWhile gameInProgress steps
 
-Random words are get from this service "http://randomword.setgetgo.com/get.php"
+Random words are get from this service http://randomword.setgetgo.com/get.php
 
 This way I'm able to simulate the gameplay with providing guesses and pure functions
     
